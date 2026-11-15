@@ -32,10 +32,11 @@ th:first-child, td:first-child {{ text-align:left; }} th {{ font-weight:600; col
 td.p {{ font-variant-numeric:tabular-nums; }}
 </style></head><body><main>
 <h1>xSnap</h1>
-<p class="muted">Team Elo baseline. Updated {updated}. Lines are closing-type lines from nflverse.</p>
+<p class="muted">Outcome v1: ridge on team Elo, recent EPA form and the starting QB. Updated {updated}.
+Line is the latest nflverse line (expected home margin); it becomes the closing line at kickoff.</p>
 <h2>{season} week {week}</h2>
 <div class="wrap"><table>
-<tr><th>Game (away @ home)</th><th>Kickoff (ET)</th><th>Home win</th><th>Elo margin</th><th>Line (home)</th></tr>
+<tr><th>Game (away @ home)</th><th>Kickoff (ET)</th><th>Home win</th><th>Margin</th><th>Elo home win</th><th>Line (home)</th></tr>
 {rows}
 </table></div>
 <h2>Track record</h2>
@@ -50,9 +51,11 @@ td.p {{ font-variant-numeric:tabular-nums; }}
 
 
 def _row(g) -> str:
-    cells = [f"{escape(g.away_team)} @ {escape(g.home_team)}", f"{g.date} {g.gametime}",
-             f"{g.p_home:.0%}", f"{g.elo_margin:+.1f}",
-             "" if pd.isna(g.close_spread_home) else f"{g.close_spread_home:+.1f}"]
+    def fmt(x, spec):
+        return "" if pd.isna(x) else format(x, spec)
+    cells = [f"{g.away_team} @ {g.home_team}", f"{g.date} {g.gametime}",
+             fmt(getattr(g, "v1_p_home", None), ".0%"), fmt(getattr(g, "v1_pred_margin", None), "+.1f"),
+             fmt(g.elo_p_home, ".0%"), fmt(g.close_spread_home, "+.1f")]
     return "<tr>" + "".join(f'<td class="p">{escape(c)}</td>' for c in cells) + "</tr>"
 
 
@@ -63,7 +66,8 @@ def main() -> None:
     metrics = "".join(
         f"<tr><td>{name}</td><td>{s['games']}</td><td>{s['log_loss']:.3f}</td>"
         f"<td>{s['brier']:.3f}</td><td>{s['margin_mae']:.2f}</td></tr>"
-        for name, s in [("Elo", m["elo"]), ("Closing line", m["market_close"])])
+        for name, s in [("Outcome v1", m.get("outcome_v1")), ("Elo", m["elo"]), ("Closing line", m["market_close"])]
+        if s)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(PAGE.format(
         updated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
