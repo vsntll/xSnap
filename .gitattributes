@@ -2,6 +2,7 @@
 *.yml   text eol=lf
 *.yaml  text eol=lf
 *.sh    text eol=lf
+*.bat   text eol=crlf
 
 # Committed pipeline data: pandas writes LF, CI (Linux) rewrites these.
 data/processed/*.csv  -text
