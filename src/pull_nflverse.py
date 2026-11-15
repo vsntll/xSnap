@@ -16,6 +16,12 @@ import polars as pl
 
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
 FIRST_PBP = 1999
+PLAYER_COLS = ["player_id", "player_display_name", "position", "position_group", "season", "week", "season_type",
+               "game_id", "team", "opponent_team", "attempts", "completions", "sacks_suffered", "carries", "targets",
+               "receptions", "passing_yards", "rushing_yards", "receiving_yards", "passing_epa", "rushing_epa",
+               "receiving_epa", "passing_cpoe"]
+BIO_COLS = ["gsis_id", "display_name", "birth_date", "position", "position_group", "rookie_season",
+            "draft_year", "draft_round", "draft_pick", "height", "weight"]
 
 
 def reduce_pbp(pbp: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -49,6 +55,14 @@ def main() -> None:
         team.write_parquet(team_path)
         qb.write_parquet(qb_path)
         print(f"pbp {season}: {team.height} team-games, {qb.height} qb-games")
+
+    for season in range(FIRST_PBP, latest + 1):
+        path = RAW / f"player_week_{season}.parquet"
+        if season < latest and path.exists():
+            continue
+        nfl.load_player_stats([season], summary_level="week").select(PLAYER_COLS).write_parquet(path)
+    nfl.load_players().select(BIO_COLS).write_parquet(RAW / "players.parquet")
+    print(f"player stats {FIRST_PBP}-{latest} + players bio cached")
 
 
 if __name__ == "__main__":
