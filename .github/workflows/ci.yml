@@ -1,8 +1,7 @@
 name: CI
 
-# Lint + tests (ported from xValue). Manual-only for now to save Actions minutes:
-# src/update.py runs the same tests locally before every publish. To re-enable on
-# push, add back push/pull_request triggers with paths src/**, tests/**, requirements.txt.
+# Lint + tests (ported from xValue). Manual-only: src/update.py runs the same
+# tests locally before every publish.
 on:
   workflow_dispatch: {}
 
