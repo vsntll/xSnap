@@ -36,15 +36,18 @@ def test_assets_fall_back_to_last_starter_and_handle_missing_headshot(tmp_path, 
     pd.DataFrame({"team_abbr": ["NE", "DET"], "team_name": ["", ""], "team_logo_espn": ["ne.png", "det.png"],
                   "team_color": ["", ""]}).to_parquet(tmp_path / "teams.parquet")
     pd.DataFrame({"gsis_id": ["q1", "q2"], "display_name": ["Drake Maye", "Jared Goff"],
-                  "headshot": ["https://x/image/upload/f_auto,q_auto/league/a", None]}).to_parquet(tmp_path / "players.parquet")
+                  "headshot": ["https://x/image/upload/f_auto,q_auto/league/a", None],
+                  "jersey_number": [10, None]}).to_parquet(tmp_path / "players.parquet")
     games = pd.DataFrame({"game_id": ["g1", "g2"], "date": ["2026-11-01", "2026-11-15"], "home_team": "DET",
                           "away_team": "NE", "home_qb_id": ["q2", None], "away_qb_id": ["q1", None]})
     logos, shots, qbs = export_site.load_assets(games)
-    assert qbs[("g2", "NE")] == ("Drake Maye", "https://x/image/upload/" + export_site.FACE + "/league/a", "q1")
-    assert qbs[("g2", "DET")] == ("Jared Goff", None, "q2")
+    assert qbs[("g2", "NE")] == ("Drake Maye", "https://x/image/upload/" + export_site.FACE + "/league/a", "q1", 10)
+    assert qbs[("g2", "DET")] == ("Jared Goff", None, "q2", None)
     html = _game(game_view(_g(game_id="g2"), logos, qbs, {"q1": (3, "A")}))
     assert 'src="ne.png"' in html and 'alt="Drake Maye"' in html and 'class="noshot"' in html
     assert "#3 QB this season" in html and 'class="grade g-A"' in html
+    card = export_site._floats([game_view(_g(game_id="g2", v1_p_home=0.3), logos, qbs)])
+    assert '<span class="idx">10<i>' in card and "Drake Maye" in card
 
 
 def test_player_panels_rank_by_position_and_tolerate_missing_war():

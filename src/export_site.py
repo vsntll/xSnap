@@ -34,8 +34,8 @@ def _num(x) -> float | None:
 
 
 def load_assets(games: pd.DataFrame) -> tuple[dict, dict, dict]:
-    """Team -> logo URL, player id -> headshot URL, and (game_id, team) -> (QB name, headshot URL, QB id).
-    Empty when the raw tables are missing."""
+    """Team -> logo URL, player id -> headshot URL, and (game_id, team) -> (QB name, headshot URL, QB id,
+    jersey number or None). Empty when the raw tables are missing."""
     logos, shots, qbs = {}, {}, {}
     if (RAW / "teams.parquet").exists():
         t = pd.read_parquet(RAW / "teams.parquet")
@@ -49,19 +49,19 @@ def load_assets(games: pd.DataFrame) -> tuple[dict, dict, dict]:
     long = pd.concat([games[["game_id", "date", f"{s}_team", f"{s}_qb_id"]].set_axis(cols, axis=1)
                       for s in ("home", "away")]).sort_values("date", kind="stable")
     long["qb"] = long.groupby("team")["qb"].ffill()  # unlisted starter: last listed one, as the model does
+    jersey = bio["jersey_number"] if "jersey_number" in bio else pd.Series(dtype=float)
     for r in long.dropna(subset=["qb"]).itertuples():
         if r.qb in bio.index:
-            qbs[(r.game_id, r.team)] = (bio.at[r.qb, "display_name"], shots.get(r.qb), r.qb)
+            num = jersey.get(r.qb)
+            qbs[(r.game_id, r.team)] = (bio.at[r.qb, "display_name"], shots.get(r.qb), r.qb,
+                                        None if num is None or pd.isna(num) else int(num))
     return logos, shots, qbs
 
 
 def load_grades() -> pd.DataFrame:
-    """Latest season of player_grades.csv (empty if it hasn't been built)."""
+    """Every season of player_grades.csv (empty if it hasn't been built)."""
     path = PROC / "player_grades.csv"
-    if not path.exists():
-        return pd.DataFrame()
-    g = pd.read_csv(path)
-    return g[g["season"] == g["season"].max()]
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
 
 def team_seasons(games: pd.DataFrame, elo: pd.DataFrame) -> pd.DataFrame:
@@ -118,7 +118,7 @@ def _logo(v, team, cls="logo") -> str:
 def _qb(v, team) -> str:
     if not v["qb"].get(team):
         return ""
-    name, shot, _ = v["qb"][team]
+    name, shot = v["qb"][team][:2]
     img = (f'<img src="{escape(shot)}" alt="{escape(name)}" width="72" height="72" loading="lazy">' if shot
            else f'<span class="noshot" aria-hidden="true">{escape(team)}</span>')
     gr = v["qb_grade"].get(team)
@@ -228,15 +228,13 @@ def _game(v) -> str:
 
 
 def _hero(views) -> str:
+    text = ("Win odds for every NFL game from a model built on <b>team Elo</b>, <b>recent EPA form</b> and the "
+            "<b>starting QB</b>, priced as fair moneylines next to the betting line.")
     if not views:
-        return "No games scheduled yet. Predictions appear once next week's schedule is set."
-    top = max(views, key=lambda v: v["fav_p"])
-    under = top["away"] if top["fav"] == top["home"] else top["home"]
-    text = (f"{len(views)} games. Strongest pick: <b>{escape(top['fav'])}</b> over {escape(under)}, "
-            f"{top['fav_p']:.0%} to win.")
+        return text + " Predictions appear once next week's schedule is set."
     split = max((v for v in views if v["edge"] is not None), key=lambda v: abs(v["edge"]), default=None)
     if split and abs(split["edge"]) >= 0.5:
-        text += f" Biggest split from the line: <b>{escape(split['away'])} @ {escape(split['home'])}</b>."
+        text += f" Biggest split from the line this week: <b>{escape(split['away'])} @ {escape(split['home'])}</b>."
     return text
 
 
@@ -264,16 +262,18 @@ SUITS = [("&hearts;", "red"), ("&spades;", "black"), ("&diams;", "red"), ("&club
 
 
 def _floats(views) -> str:
-    """Hero playing cards: the six most confident picks, win % as the card index."""
+    """Playing cards for the deal, strongest pick first; the card index is the pictured QB's jersey number."""
     def card(i, v):
         suit, ink = SUITS[i % 4]
         qb = v["qb"].get(v["fav"])
         shot = f'<img class="shot" src="{escape(qb[1])}" alt="">' if qb and qb[1] else ""
-        idx = f'{v["fav_p"] * 100:.0f}<i>{suit}</i>'
+        num = qb[3] if qb and len(qb) > 3 and qb[3] is not None else None
+        idx = f'{num if num is not None else ""}<i>{suit}</i>'
+        name = f'<span class="qn">{escape(qb[0])}</span>' if qb else ""
         return (f'<div class="card {ink}"><span class="idx">{idx}</span>{shot}{_logo(v, v["fav"], "badge")}'
-                f'<b>{escape(v["fav"])}</b><span class="ml">{american(v["fav_p"])} vs {escape(v["dog"])}</span>'
+                f'<b>{escape(v["fav"])}</b>{name}<span class="ml">{v["fav_p"]:.0%}, {american(v["fav_p"])} vs {escape(v["dog"])}</span>'
                 f'<span class="idx r">{idx}</span><span class="back"></span></div>')
-    return "".join(card(i, v) for i, v in enumerate(sorted(views, key=lambda v: -v["fav_p"])[:6]))
+    return "".join(card(i, v) for i, v in enumerate(sorted(views, key=lambda v: -v["fav_p"])))
 
 
 def _ticker(views) -> str:
@@ -342,11 +342,25 @@ def main() -> None:
     m = json.loads((PROC / "model_metrics.json").read_text())
     week = week_predictions(games, m["elo"]["k"], m["elo"]["hfa"])
     logos, shots, qbs = load_assets(games)
-    grades = load_grades()
+    all_grades = load_grades()
+    grades = all_grades[all_grades["season"] == all_grades["season"].max()] if len(all_grades) else all_grades
     qb = grades[grades["pos"] == "QB"] if len(grades) else grades
     qb_grades = {r.player_id: (r.rank, r.grade) for r in qb.itertuples()}
     views = [game_view(g, logos, qbs, qb_grades) for g in week.itertuples()]
     ptabs, ppanels = _players(grades, logos, shots)
+    # every season's rankings as its own small file, fetched only when picked
+    (OUT.parent / "players").mkdir(parents=True, exist_ok=True)
+    pseasons = sorted(all_grades["season"].unique(), reverse=True) if len(all_grades) else []
+    for s in pseasons:
+        t, pn = _players(all_grades[all_grades["season"] == s], logos, shots)
+        (OUT.parent / "players" / f"{s}.json").write_text(json.dumps({"tabs": t, "panels": pn}), encoding="utf-8")
+    elo = run_elo(games, m["elo"]["k"], m["elo"]["hfa"])
+    ts = team_seasons(games, elo)
+    topts, tbodies = _teams(ts, logos)
+    # captions use nicknames ("Bills"); the stage light takes the favourite's team colour
+    teams = pd.read_parquet(RAW / "teams.parquet") if (RAW / "teams.parquet").exists() else pd.DataFrame()
+    names = {r.team_abbr: r.team_name.split()[-1] for r in teams.itertuples()}
+    colors = {r.team_abbr: r.team_color for r in teams.itertuples() if isinstance(r.team_color, str)}
     days = list(dict.fromkeys(f"{v['kick']:%a}" for v in sorted(views, key=lambda v: v["kick"])))
     chips = '<button class="pill" type="button" data-day="all" aria-pressed="true">All games</button>' + "".join(
         f'<button class="pill" type="button" data-day="{d}" aria-pressed="false">{d}</button>' for d in days)
@@ -358,6 +372,8 @@ def main() -> None:
         hero=_hero(views), floats=_floats(views), ticker=_ticker(views), chips=chips, games="\n".join(_game(v) for v in views),
         test_seasons=m["elo"]["test_seasons"], metrics=_metrics(m), ptabs=ptabs, ppanels=ppanels,
         pseason=int(grades["season"].iloc[0]) if len(grades) else "",
+        popts="".join(f'<option value="{s}">{s}</option>' for s in pseasons),
+        topts=topts, tbodies=tbodies, scenes=_scenes(views, names, colors), deal_n=len(views), seasons=_seasons(season_record(games, elo)),
     ), encoding="utf-8")
     print(f"site: {len(views)} games -> {OUT}")
 
