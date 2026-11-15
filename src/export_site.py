@@ -240,6 +240,26 @@ def _hero(views) -> str:
     return text
 
 
+def _scenes(views, names: dict, colors: dict) -> str:
+    """One caption per game for the deal, strongest pick first (same order as the cards)."""
+    order = sorted(views, key=lambda v: -v["fav_p"])
+    out = []
+    for i, v in enumerate(order, 1):
+        kick = v["kick"]
+        when = f"{kick:%a %b} {kick.day}, {kick:%I:%M %p} ET".replace(" 0", " ")
+        nm = lambda t: escape(names.get(t, t))
+        edge = "" if v["edge"] is None or abs(v["edge"]) < 0.5 else (
+            f'<div><small>Model vs line</small><span class="edge">{escape(v["home"] if v["edge"] > 0 else v["away"])} '
+            f'+{abs(v["edge"]):.1f} pts</span></div>')
+        out.append(f'<article class="scene" data-tint="{escape(colors.get(v["fav"]) or "#D7263D")}">'
+                   f'<p class="kicker"><b>Pick {i:02d} / {len(order):02d}</b><span>{when}</span></p>'
+                   f'<h2>{nm(v["fav"])} <em>over the {nm(v["dog"])}</em></h2>'
+                   f'<p class="odds"><b>{v["fav_p"] * 100:.0f}%</b><span>to win</span></p>'
+                   f'<div class="facts"><div><small>Fair moneyline</small><span>{american(v["fav_p"])}</span></div>'
+                   f'<div><small>Spread</small><span>{escape(spread_text(v))}</span></div>{edge}</div></article>')
+    return "\n".join(out)
+
+
 SUITS = [("&hearts;", "red"), ("&spades;", "black"), ("&diams;", "red"), ("&clubs;", "black")]
 
 
