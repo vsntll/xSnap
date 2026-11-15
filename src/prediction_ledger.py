@@ -1,4 +1,4 @@
-"""Step 12a: freeze the next week's predictions into an append-only ledger,
+"""Freeze the next week's predictions into an append-only ledger,
 data/processed/predictions_ledger.csv, for every published model (elo, outcome_v1).
 A (model, game) gets a new row only when its prediction changed since its last
 snapshot, and never once the game has kicked off, so re-running is idempotent."""

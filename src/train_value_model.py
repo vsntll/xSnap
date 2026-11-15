@@ -1,4 +1,4 @@
-"""Steps 7-8: position aging curves and next-season value projections.
+"""Position aging curves and next-season value projections.
 
 Rows: a player's season t (QB/RB/WR/TE with any volume) -> target value in t+1
 (0 if he didn't play: value above replacement of an absent player). Features:
@@ -10,8 +10,7 @@ three seasons of value / rate / volume / games, age, draft pick, team change.
 Blend weight picked on targets 2021-23 (fit on earlier); scored once on targets
 2024-25, fit on everything before. Live: fit on all, project the current season
 from the last finished one -> value_projections.csv, aging_curves.csv.
-shortcut: no rookie cold-start sub-model yet (rookies get no projection); no
-rate x volume split; both are the next value-model steps.
+Rookies (no prior season) get no projection.
 """
 
 from __future__ import annotations

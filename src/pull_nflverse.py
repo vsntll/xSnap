@@ -1,4 +1,4 @@
-"""Step 1: pull nflverse tables into the data/raw/ parquet cache.
+"""Pull nflverse tables into the data/raw/ parquet cache.
 
 - schedules.parquet: every game since 1999.
 - pbp_team_<season>.parquet / pbp_qb_<season>.parquet: play-by-play reduced to

@@ -1,4 +1,4 @@
-"""Step 10b: outcome v1 - ridge on home margin over Elo + rolling EPA + QB features,
+"""Outcome v1 - ridge on home margin over Elo + rolling EPA + QB features,
 normal error around the margin for win probability.
 
 Walk-forward: each season is predicted by a model fit on every earlier season
@@ -6,8 +6,7 @@ Walk-forward: each season is predicted by a model fit on every earlier season
 2008-14 only; 2015 on is scored once, on the same games as the Elo floor.
 The live fit uses every finished game and predicts the unplayed ones ->
 data/processed/outcome_predictions.csv. Metrics go into model_metrics.json["outcome_v1"].
-shortcut: backtest refits once per season, live refits every run; refit weekly in
-the backtest if the gap ever matters.
+The backtest refits once per season; the live fit refits every run.
 """
 
 from __future__ import annotations

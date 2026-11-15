@@ -1,4 +1,4 @@
-"""Step 4: one row per NFL game, results plus pre-game context, from the cached
+"""One row per NFL game, results plus pre-game context, from the cached
 nflverse schedules -> data/processed/games_all.csv.
 
 Market columns are closing-type lines (nflverse schedules), so they are named

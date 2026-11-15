@@ -1,12 +1,11 @@
-"""Steps 9-10a: pre-kickoff features for every game -> data/processed/game_model_table.csv.
+"""Pre-kickoff features for every game -> data/processed/game_model_table.csv.
 
 Per team: exponentially weighted EPA/play and success rate, offense and defense,
 pass and rush. Per starting QB: dropback EPA over his last 16 games, shrunk to a
 replacement-level prior. Every feature is the state after the team's / QB's
 previous game (as-of merge strictly before the kickoff date), so played and
 upcoming games are built the same way.
-shortcut: form carries straight across seasons (Elo does the off-season regression);
-add a season-boundary decay if it helps on pre-2015 data.
+Form carries straight across seasons (Elo does the off-season regression).
 """
 
 from __future__ import annotations

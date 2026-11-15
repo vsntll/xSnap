@@ -1,4 +1,4 @@
-"""Milestone 2: Elo-only baseline, back-tested against the closing line.
+"""Elo-only baseline, back-tested against the closing line.
 
 Tune K and home-field advantage on 2002-14 (1999-2001 is rating burn-in), score
 every played game from 2015 on next to the de-vigged closing moneyline and the

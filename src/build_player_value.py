@@ -1,4 +1,4 @@
-"""Step 6: on-field value per player-season, QB and skill positions (v1)
+"""On-field value per player-season, QB and skill positions (v1)
 -> data/processed/player_season_value.csv.
 
 value = EPA - replacement EPA rate x opportunities, regular season only.
@@ -7,8 +7,7 @@ value = EPA - replacement EPA rate x opportunities, regular season only.
 Replacement rate: EPA per opportunity of the players ranked N+1..2N by volume at
 the position that season (N = starters league-wide).
 shortcut: passer and receiver both get the full EPA of a completed pass (each is
-judged only against its own position's replacement); split the credit when values
-must sum across positions (roster availability, milestone 5).
+judged only against its own position's replacement), so values don't sum across positions.
 """
 
 from __future__ import annotations
