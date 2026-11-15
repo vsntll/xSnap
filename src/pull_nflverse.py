@@ -21,7 +21,7 @@ PLAYER_COLS = ["player_id", "player_display_name", "position", "position_group",
                "receptions", "passing_yards", "rushing_yards", "receiving_yards", "passing_epa", "rushing_epa",
                "receiving_epa", "passing_cpoe"]
 BIO_COLS = ["gsis_id", "display_name", "birth_date", "position", "position_group", "rookie_season",
-            "draft_year", "draft_round", "draft_pick", "height", "weight", "headshot"]
+            "draft_year", "draft_round", "draft_pick", "height", "weight", "headshot", "jersey_number"]
 TEAM_COLS = ["team_abbr", "team_name", "team_logo_espn", "team_color"]
 
 
