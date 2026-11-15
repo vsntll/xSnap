@@ -12,7 +12,7 @@ from string import Template
 
 import pandas as pd
 
-from elo import run_elo
+from elo import FRANCHISE, run_elo
 from prediction_ledger import week_predictions
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -278,6 +278,43 @@ def _metrics(m) -> str:
         f"<tr class=\"rrow\"><td>{n}</td><td class=\"cnt\">{s['games']:,}</td>"
         + "".join(f'<td class="cnt{" best" if s[k] == best[k] else ""}">{s[k]:{f}}</td>' for k, f in keys) + "</tr>"
         for n, s in models)
+
+
+def _logo_for(logos: dict, team: str) -> str | None:
+    return logos.get(team) or logos.get(FRANCHISE.get(team, ""))
+
+
+def _teams(ts: pd.DataFrame, logos: dict) -> tuple[str, str]:
+    """Season picker options and one table body of Elo power rankings per season, newest first."""
+    if ts.empty:
+        return "", ""
+    seasons = sorted(ts["season"].unique(), reverse=True)
+    opts = "".join(f'<option value="{s}">{s}</option>' for s in seasons)
+    bodies = []
+    for i, s in enumerate(seasons):
+        rows = []
+        for r in ts[ts["season"] == s].itertuples():
+            logo = _logo_for(logos, r.team)
+            img = f'<img class="tlogo" src="{escape(logo)}" alt="" loading="lazy">' if logo else ""
+            rec = f"{r.w}-{r.l}" + (f"-{r.t}" if r.t else "")
+            bar = min(max((r.elo - 1300) / 450, 0), 1)  # 1300-1750 covers nearly every team-season
+            rows.append(f'<tr class="rrow"><td class="rk">{r.rank}</td><td class="tn">{img}{escape(r.team)}</td>'
+                        f'<td>{rec}</td><td>{r.diff:+.0f}</td><td class="eb"><span class="pbar" style="--pct:{bar:.3f}"><i></i></span></td>'
+                        f'<td class="cnt">{r.elo:.0f}</td></tr>')
+        bodies.append(f'<tbody data-season="{s}"{"" if i == 0 else " hidden"}>{"".join(rows)}</tbody>')
+    return opts, "".join(bodies)
+
+
+def _seasons(rec: pd.DataFrame) -> str:
+    """Season-by-season pick record rows, newest first; the better of Elo and the line is lit gold."""
+    out = []
+    for s, r in rec.sort_index(ascending=False).iterrows():
+        line = "–" if pd.isna(r["line"]) else f"{r['line']:.1%}"
+        eb = " best" if pd.isna(r["line"]) or r["elo"] >= r["line"] else ""
+        lb = "" if eb or pd.isna(r["line"]) else " best"
+        out.append(f'<tr class="rrow"><td>{s}</td><td class="cnt">{int(r["games"])}</td>'
+                   f'<td class="cnt{eb}">{r["elo"]:.1%}</td><td class="cnt{lb}">{line}</td></tr>')
+    return "".join(out)
 
 
 def main() -> None:
