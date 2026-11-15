@@ -15,7 +15,8 @@ ELO_PER_POINT = 25.0  # 538's conversion: 25 Elo points ~ 1 point of margin
 
 
 def run_elo(games: pd.DataFrame, k: float = 20.0, hfa: float = 48.0, revert: float = 1 / 3) -> pd.DataFrame:
-    """games: games_all rows. Returns game_id, elo_home, elo_away, p_home, elo_margin (pre-game)."""
+    """games: games_all rows. Returns game_id, elo_home, elo_away, p_home, elo_margin (pre-game)
+    and elo_home_post, elo_away_post (after the result; pre-game values for unplayed games)."""
     games = games.sort_values(["date", "gametime", "game_id"])
     rating: dict[str, float] = {}
     season = None
@@ -28,8 +29,8 @@ def run_elo(games: pd.DataFrame, k: float = 20.0, hfa: float = 48.0, revert: flo
         rh, ra = rating.get(h, 1500.0), rating.get(a, 1500.0)
         diff = rh - ra + (0.0 if g.location == "Neutral" else hfa)
         p = 1 / (1 + 10 ** (-diff / 400))
-        out.append((g.game_id, rh, ra, p, diff / ELO_PER_POINT))
         if pd.isna(g.home_margin):
+            out.append((g.game_id, rh, ra, p, diff / ELO_PER_POINT, rh, ra))
             continue
         m = g.home_margin
         result = 1.0 if m > 0 else 0.0 if m < 0 else 0.5
@@ -37,4 +38,6 @@ def run_elo(games: pd.DataFrame, k: float = 20.0, hfa: float = 48.0, revert: flo
         mult = math.log(max(abs(m), 1) + 1) * 2.2 / (winner_diff * 0.001 + 2.2)
         delta = k * mult * (result - p)
         rating[h], rating[a] = rh + delta, ra - delta
-    return pd.DataFrame(out, columns=["game_id", "elo_home", "elo_away", "p_home", "elo_margin"])
+        out.append((g.game_id, rh, ra, p, diff / ELO_PER_POINT, rating[h], rating[a]))
+    return pd.DataFrame(out, columns=["game_id", "elo_home", "elo_away", "p_home", "elo_margin",
+                                      "elo_home_post", "elo_away_post"])
