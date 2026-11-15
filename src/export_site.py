@@ -123,6 +123,41 @@ def game_view(g, logos: dict | None = None, qbs: dict | None = None, qb_grades: 
     return v
 
 
+VOLUME = {"QB": "dropbacks + carries", "RB": "carries + targets", "WR": "carries + targets",
+          "TE": "carries + targets", "K": "field goal tries", "D/ST": "games"}
+
+
+def _players(grades: pd.DataFrame, logos: dict, shots: dict) -> tuple[str, str]:
+    """Position tabs and one ranked panel per position."""
+    if grades.empty:
+        return "", '<p class="empty">Player grades appear once build_player_grades.py has run.</p>'
+    has_war = "war" in grades and "value_per_game" in grades
+    tabs, panels = [], []
+    for i, pos in enumerate(p for p in VOLUME if p in set(grades["pos"])):
+        rows = []
+        for r in grades[grades["pos"] == pos].sort_values("rank").itertuples():
+            logo = logos.get(r.team)
+            shot = logo if pos == "D/ST" else shots.get(r.player_id)
+            img = (f'<img class="pshot{" dst" if pos == "D/ST" else ""}" src="{escape(shot)}" alt="" loading="lazy">'
+                   if shot else f'<span class="pshot noshot">{escape(r.team)}</span>')
+            tlogo = f'<img class="tlogo" src="{escape(logo)}" alt="" loading="lazy">' if logo and pos != "D/ST" else ""
+            impact = (f'<span class="pnum"><span class="cnt">{r.war:+.2f}</span><small>wins added</small></span>'
+                      f'<span class="pnum"><span class="cnt">{r.value_per_game:+.1f}</span><small>pts / game</small></span>' if has_war else "")
+            rows.append(
+                f'<li class="prow" data-q="{escape(f"{r.name} {r.team}".upper())}"><span class="rk">{r.rank}</span>{img}'
+                f'<span class="pname">{escape(r.name)}<small>{tlogo}{escape(r.team)}, {int(r.volume)} {VOLUME[pos]}</small></span>'
+                f'<span class="grade g-{r.grade}">{r.grade}</span>'
+                f'<span class="pbar" style="--pct:{r.pct / 100:.3f}" title="Better than {r.pct:.0f}% at {pos}"><i></i></span>'
+                f'<span class="pnum"><span class="cnt">{r.value:+.1f}</span><small>pts vs replacement</small></span>{impact}</li>')
+        sel = "true" if i == 0 else "false"
+        tabs.append(f'<button class="pill" type="button" role="tab" aria-selected="{sel}" aria-controls="pp-{i}" '
+                    f'data-panel="pp-{i}">{pos}</button>')
+        more = (f'<button class="pill more" type="button">Show all {len(rows)}</button>' if len(rows) > 10 else "")
+        panels.append(f'<div class="ppanel" id="pp-{i}" data-pos="{pos}" role="tabpanel" aria-label="{pos} rankings"'
+                      f'{"" if i == 0 else " hidden"}><ol class="plist">{"".join(rows)}</ol>{more}</div>')
+    return "".join(tabs), "".join(panels)
+
+
 def american(p: float | None) -> str:
     """Fair American moneyline for a win probability (no bookmaker margin)."""
     if p is None:
