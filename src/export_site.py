@@ -4,6 +4,8 @@ master /docs). Shows the same Elo predictions the ledger froze, plus the backtes
 from __future__ import annotations
 
 import json
+import math
+from datetime import datetime
 from html import escape
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from prediction_ledger import week_predictions
 ROOT = Path(__file__).resolve().parent.parent
 PROC = ROOT / "data" / "processed"
 OUT = ROOT / "docs" / "index.html"
+MARGIN_SD = 13.45  # NFL result-vs-spread spread in points; turns a line into win odds
 
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -57,6 +60,53 @@ def _row(g) -> str:
              fmt(getattr(g, "v1_p_home", None), ".0%"), fmt(getattr(g, "v1_pred_margin", None), "+.1f"),
              fmt(g.elo_p_home, ".0%"), fmt(g.close_spread_home, "+.1f")]
     return "<tr>" + "".join(f'<td class="p">{escape(c)}</td>' for c in cells) + "</tr>"
+
+
+def market_p(spread_home: float) -> float:
+    """Home win probability implied by the home margin the line expects."""
+    return 0.5 * (1 + math.erf(spread_home / (MARGIN_SD * math.sqrt(2))))
+
+
+def _num(x) -> float | None:
+    return None if x is None or pd.isna(x) else float(x)
+
+
+def game_view(g, logos: dict | None = None, qbs: dict | None = None, qb_grades: dict | None = None) -> dict:
+    """Plain numbers the page needs for one game; v1 falls back to Elo when missing."""
+    elo, line = _num(g.elo_p_home), _num(g.close_spread_home)
+    p = _num(getattr(g, "v1_p_home", None))
+    margin = _num(getattr(g, "v1_pred_margin", None))
+    kick = datetime.strptime(f"{g.date} {g.gametime}", "%Y-%m-%d %H:%M")
+    v = {"away": g.away_team, "home": g.home_team, "p": p if p is not None else elo, "v1": p is not None,
+         "elo": elo, "line": line, "margin": margin, "mkt": None if line is None else market_p(line),
+         "kick": kick, "edge": None if margin is None or line is None else margin - line}
+    v["fav"] = v["home"] if v["p"] >= 0.5 else v["away"]
+    v["fav_p"] = max(v["p"], 1 - v["p"])
+    v["dog"] = v["away"] if v["fav"] == v["home"] else v["home"]
+    gid = getattr(g, "game_id", None)
+    v["logo"] = {t: (logos or {}).get(t) for t in (v["away"], v["home"])}
+    v["qb"] = {t: (qbs or {}).get((gid, t)) for t in (v["away"], v["home"])}
+    v["qb_grade"] = {t: (qb_grades or {}).get(q[2]) if q else None for t, q in v["qb"].items()}
+    return v
+
+
+def american(p: float | None) -> str:
+    """Fair American moneyline for a win probability (no bookmaker margin)."""
+    if p is None:
+        return "–"
+    p = min(max(p, 0.01), 0.99)  # keep 99%+ picks from printing absurd numbers
+    if abs(p - 0.5) < 0.005:
+        return "EVEN"
+    return f"-{round(100 * p / (1 - p))}" if p > 0.5 else f"+{round(100 * (1 - p) / p)}"
+
+
+def spread_text(v) -> str:
+    """Sportsbook-style spread: favourite minus points, e.g. 'DET -2.5'."""
+    if v["line"] is None:
+        return "No line"
+    if abs(v["line"]) < 0.25:
+        return "PK"
+    return f"{v['home']} -{v['line']:.1f}" if v["line"] > 0 else f"{v['away']} -{-v['line']:.1f}"
 
 
 def main() -> None:
