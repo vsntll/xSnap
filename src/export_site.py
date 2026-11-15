@@ -15,6 +15,8 @@ from prediction_ledger import week_predictions
 
 ROOT = Path(__file__).resolve().parent.parent
 PROC = ROOT / "data" / "processed"
+RAW = ROOT / "data" / "raw"
+FACE = "f_auto,q_auto,c_thumb,g_face,w_200,h_200"  # NFL CDN crop: ~20 KB instead of the 4 MB original
 OUT = ROOT / "docs" / "index.html"
 MARGIN_SD = 13.45  # NFL result-vs-spread spread in points; turns a line into win odds
 
@@ -69,6 +71,37 @@ def market_p(spread_home: float) -> float:
 
 def _num(x) -> float | None:
     return None if x is None or pd.isna(x) else float(x)
+
+
+def load_assets(games: pd.DataFrame) -> tuple[dict, dict, dict]:
+    """Team -> logo URL, player id -> headshot URL, and (game_id, team) -> (QB name, headshot URL, QB id).
+    Empty when the raw tables are missing."""
+    logos, shots, qbs = {}, {}, {}
+    if (RAW / "teams.parquet").exists():
+        t = pd.read_parquet(RAW / "teams.parquet")
+        logos = dict(zip(t["team_abbr"], t["team_logo_espn"]))
+    players = pd.read_parquet(RAW / "players.parquet") if (RAW / "players.parquet").exists() else None
+    if players is None or "headshot" not in players:
+        return logos, shots, qbs
+    bio = players.drop_duplicates("gsis_id").set_index("gsis_id")
+    shots = {pid: s.replace("f_auto,q_auto", FACE, 1) for pid, s in bio["headshot"].dropna().items()}
+    cols = ["game_id", "date", "team", "qb"]
+    long = pd.concat([games[["game_id", "date", f"{s}_team", f"{s}_qb_id"]].set_axis(cols, axis=1)
+                      for s in ("home", "away")]).sort_values("date", kind="stable")
+    long["qb"] = long.groupby("team")["qb"].ffill()  # unlisted starter: last listed one, as the model does
+    for r in long.dropna(subset=["qb"]).itertuples():
+        if r.qb in bio.index:
+            qbs[(r.game_id, r.team)] = (bio.at[r.qb, "display_name"], shots.get(r.qb), r.qb)
+    return logos, shots, qbs
+
+
+def load_grades() -> pd.DataFrame:
+    """Latest season of player_grades.csv (empty if it hasn't been built)."""
+    path = PROC / "player_grades.csv"
+    if not path.exists():
+        return pd.DataFrame()
+    g = pd.read_csv(path)
+    return g[g["season"] == g["season"].max()]
 
 
 def game_view(g, logos: dict | None = None, qbs: dict | None = None, qb_grades: dict | None = None) -> dict:
