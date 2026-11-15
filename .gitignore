@@ -1,0 +1,25 @@
+# Local planning notes - not part of the repo
+xSnap_plan.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Data - data/raw/ is the nflverse fetch cache (reproducible). data/processed/
+# is committed, except the tables every refresh rebuilds from scratch (bottom).
+data/raw/
+
+# Secrets
+.env
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.claude/
+
+# Rebuilt-every-run outputs - ship as a release asset, not in git history
+data/processed/games_all.csv
