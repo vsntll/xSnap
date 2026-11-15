@@ -16,6 +16,13 @@ def test_panel_lags_and_targets():
     assert df.loc[2020, "draft_pick"] == 300 and round(df.loc[2020, "age"]) == 25
 
 
+def test_partial_next_season_is_not_a_label():
+    ps = pd.DataFrame({"season": [2025, 2026], "player_id": "p1", "name": "A", "pos": "QB", "team": "KC",
+                       "value": [100.0, 40.0], "rate": 0.1, "opp": [600, 300], "games": [17, 9]})
+    bio = pd.DataFrame({"gsis_id": ["p1"], "birth_date": ["1995-01-01"], "draft_pick": [10]})
+    assert panel(ps, bio, last_finished=2025)["target"].isna().all()
+
+
 def test_absent_next_season_is_zero():
     ps = pd.DataFrame({"season": [2020], "player_id": "p1", "name": "A", "pos": "RB", "team": "KC",
                        "value": [5.0], "rate": 0.0, "opp": 50, "games": 8})
