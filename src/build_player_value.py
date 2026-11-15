@@ -50,7 +50,8 @@ def build(weeks: pd.DataFrame, bio: pd.DataFrame) -> tuple[pd.DataFrame, pd.Data
     pos = bio.set_index("gsis_id")["position"]
     weeks = weeks[(weeks["season_type"] == "REG") & (weeks["season"] >= FIRST_SEASON)]
     w = weeks.assign(pos=weeks["player_id"].map(pos).fillna(weeks["position"]))
-    w = opportunities(w[w["pos"].isin(STARTERS)])
+    # sorted so "last" team / name is the player's most recent
+    w = opportunities(w[w["pos"].isin(STARTERS)]).sort_values(["season", "week"])
     keys = ["season", "player_id", "pos"]
     ps = w.groupby(keys).agg(name=("player_display_name", "last"), team=("team", "last"), games=("game_id", "nunique"),
                              opp=("opp", "sum"), epa=("epa", "sum")).reset_index()

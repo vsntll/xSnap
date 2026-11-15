@@ -25,7 +25,8 @@ COLS = ["season", "pos", "player_id", "name", "team", "volume", "value"]
 
 
 def kickers(k: pd.DataFrame, reg: pd.DataFrame) -> pd.DataFrame:
-    k = k.merge(reg[["game_id", "season"]], on="game_id")
+    # sorted so "last" is his most recent team (game_id = season_week_away_home)
+    k = k.merge(reg[["game_id", "season"]], on="game_id").sort_values("game_id")
     out = k.groupby(["season", "kicker_id"]).agg(name=("name", "last"), team=("posteam", "last"),
                                                   volume=("fg_att", "sum"), value=("k_epa", "sum")).reset_index()
     return out.rename(columns={"kicker_id": "player_id"}).assign(pos="K")[COLS]
