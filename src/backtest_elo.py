@@ -57,6 +57,8 @@ def main() -> None:
                 **score(test)},
         "market_close": score(market),
     }
+    # keep other models' sections (train_outcome_model.py writes outcome_v1)
+    metrics = {**(json.loads(OUT.read_text()) if OUT.exists() else {}), **metrics}
     OUT.write_text(json.dumps(metrics, indent=2) + "\n")
     print(json.dumps(metrics, indent=2))
 
