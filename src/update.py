@@ -14,7 +14,9 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STEPS = ["pull_nflverse.py", "build_games_all.py", "backtest_elo.py", "prediction_ledger.py", "export_site.py"]
+# check_model_metrics.py is the regression gate: a worse model stops the run before the ledger and site
+STEPS = ["pull_nflverse.py", "build_games_all.py", "backtest_elo.py", "train_outcome_model.py",
+         "check_model_metrics.py", "prediction_ledger.py", "export_site.py"]
 PUBLISHED = ["data/processed/model_metrics.json", "data/processed/predictions_ledger.csv", "docs/index.html"]
 
 
