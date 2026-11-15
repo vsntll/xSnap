@@ -25,3 +25,4 @@ Thumbs.db
 data/processed/games_all.csv
 data/processed/game_model_table.csv
 data/processed/outcome_predictions.csv
+data/processed/player_season_value.csv
