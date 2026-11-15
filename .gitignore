@@ -24,3 +24,4 @@ Thumbs.db
 # Rebuilt-every-run outputs - ship as a release asset, not in git history
 data/processed/games_all.csv
 data/processed/game_model_table.csv
+data/processed/outcome_predictions.csv
