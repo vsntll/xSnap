@@ -4,7 +4,6 @@ master /docs). Shows the same Elo predictions the ledger froze, plus the backtes
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
@@ -32,15 +31,16 @@ th:first-child, td:first-child {{ text-align:left; }} th {{ font-weight:600; col
 td.p {{ font-variant-numeric:tabular-nums; }}
 </style></head><body><main>
 <h1>xSnap</h1>
-<p class="muted">Outcome v1: ridge on team Elo, recent EPA form and the starting QB. Updated {updated}.
+<p class="muted">Outcome v1: ridge on team Elo, recent EPA form and the starting QB. Data through {updated}.
 Line is the latest nflverse line (expected home margin); it becomes the closing line at kickoff.</p>
 <h2>{season} week {week}</h2>
 <div class="wrap"><table>
 <tr><th>Game (away @ home)</th><th>Kickoff (ET)</th><th>Home win</th><th>Margin</th><th>Elo home win</th><th>Line (home)</th></tr>
 {rows}
 </table></div>
-<h2>Track record</h2>
-<p class="muted">Every played game {test_seasons}, playoffs included. Lower is better.</p>
+<h2>Backtest</h2>
+<p class="muted">Walk-forward: each season predicted by a model fit only on earlier seasons. Every played game
+{test_seasons}, playoffs included. Lower is better. Live ledger scoring comes once enough weeks are frozen.</p>
 <div class="wrap"><table>
 <tr><th>Model</th><th>Games</th><th>Log-loss</th><th>Brier</th><th>Margin MAE</th></tr>
 {metrics}
@@ -70,7 +70,8 @@ def main() -> None:
         if s)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(PAGE.format(
-        updated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        # data date, not wall-clock time, so an unchanged rerun leaves the page byte-identical
+        updated=games.loc[games["completed"], "date"].max(),
         season=int(week["season"].iloc[0]) if len(week) else "", week=int(week["week"].iloc[0]) if len(week) else "",
         rows="".join(_row(g) for g in week.itertuples()), test_seasons=m["elo"]["test_seasons"], metrics=metrics,
     ), encoding="utf-8")
