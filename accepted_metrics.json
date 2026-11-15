@@ -61,7 +61,14 @@
   "value": {
     "blend_direct": 1.0,
     "holdout_targets": "2024-2025",
+    "headline": "baseline_scaled",
     "model": {
+      "n": 1168,
+      "r2": 0.468,
+      "mae": 11.03,
+      "spearman": 0.291
+    },
+    "gbm": {
       "n": 1168,
       "r2": 0.446,
       "mae": 10.64,
@@ -69,82 +76,106 @@
     },
     "baseline": {
       "n": 1168,
-      "r2": 0.364,
-      "mae": 12.83,
-      "spearman": 0.306
+      "r2": 0.357,
+      "mae": 12.99,
+      "spearman": 0.302
     },
     "by_pos": {
       "QB": {
         "model": {
           "n": 159,
-          "r2": 0.443,
-          "mae": 28.68,
-          "spearman": 0.54
+          "r2": 0.478,
+          "mae": 29.68,
+          "spearman": 0.584
         },
         "baseline": {
           "n": 159,
-          "r2": 0.413,
-          "mae": 32.78,
-          "spearman": 0.6
+          "r2": 0.401,
+          "mae": 33.29,
+          "spearman": 0.584
+        },
+        "gbm": {
+          "n": 159,
+          "r2": 0.443,
+          "mae": 28.68,
+          "spearman": 0.54
         }
       },
       "RB": {
         "model": {
           "n": 300,
-          "r2": 0.068,
-          "mae": 8.64,
-          "spearman": 0.149
+          "r2": 0.054,
+          "mae": 8.89,
+          "spearman": 0.1
         },
         "baseline": {
           "n": 300,
-          "r2": -0.27,
-          "mae": 10.85,
-          "spearman": 0.098
+          "r2": -0.266,
+          "mae": 10.96,
+          "spearman": 0.1
+        },
+        "gbm": {
+          "n": 300,
+          "r2": 0.068,
+          "mae": 8.64,
+          "spearman": 0.149
         }
       },
       "TE": {
         "model": {
           "n": 250,
-          "r2": 0.14,
-          "mae": 5.93,
-          "spearman": 0.174
+          "r2": 0.105,
+          "mae": 5.99,
+          "spearman": 0.111
         },
         "baseline": {
           "n": 250,
-          "r2": -0.006,
-          "mae": 6.82,
-          "spearman": 0.107
+          "r2": -0.023,
+          "mae": 6.98,
+          "spearman": 0.111
+        },
+        "gbm": {
+          "n": 250,
+          "r2": 0.14,
+          "mae": 5.93,
+          "spearman": 0.174
         }
       },
       "WR": {
         "model": {
           "n": 459,
-          "r2": 0.199,
-          "mae": 8.25,
-          "spearman": 0.366
+          "r2": 0.21,
+          "mae": 8.73,
+          "spearman": 0.362
         },
         "baseline": {
           "n": 459,
-          "r2": -0.066,
-          "mae": 10.48,
-          "spearman": 0.361
+          "r2": -0.062,
+          "mae": 10.57,
+          "spearman": 0.362
+        },
+        "gbm": {
+          "n": 459,
+          "r2": 0.199,
+          "mae": 8.25,
+          "spearman": 0.366
         }
       }
     },
     "calibration_by_pred_quintile": {
-      "pred": [
-        -1.0,
-        0.4,
-        1.2,
-        4.5,
-        36.6
+      "base_scaled": [
+        -2.5,
+        1.0,
+        2.7,
+        6.3,
+        32.6
       ],
       "target": [
+        1.0,
+        0.8,
         1.4,
-        0.2,
-        1.2,
-        5.0,
-        32.4
+        5.8,
+        31.2
       ]
     }
   }
