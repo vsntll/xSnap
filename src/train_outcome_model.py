@@ -84,6 +84,9 @@ def main() -> None:
 
     done = table[table["completed"] & (table["season"] >= FIRST_TRAIN)].dropna(subset=FEATURES)
     live = predict(*fit(done, alpha), table[~table["completed"]].dropna(subset=FEATURES))
+    from prediction_ledger import next_week  # noqa: PLC0415 - avoids a cycle at import time
+    missing = set(next_week(games)["game_id"]) - set(live["game_id"])
+    assert not missing, f"next-week games with no v1 prediction (null features): {sorted(missing)}"
     live[["game_id", "p_home", "pred_margin"]].to_csv(PROC / "outcome_predictions.csv", index=False)
     print(f"outcome_predictions: {len(live)} unplayed games")
 
