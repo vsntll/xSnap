@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xSnap NFL Predictions</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#e3e3e3; --accent:#1f6feb; }
+@media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#999; --line:#333; --accent:#58a6ff; } }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+main { max-width:760px; margin:0 auto; padding:24px 16px; }
+h1 { margin:0 0 4px; } .muted { color:var(--muted); font-size:13px; }
+.wrap { overflow-x:auto; } table { width:100%; border-collapse:collapse; margin:12px 0 28px; }
+th, td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+th:first-child, td:first-child { text-align:left; } th { font-weight:600; color:var(--muted); font-size:13px; }
+td.p { font-variant-numeric:tabular-nums; }
+</style></head><body><main>
+<h1>xSnap</h1>
+<p class="muted">Team Elo baseline. Updated 2026-11-15 00:24 UTC. Lines are closing-type lines from nflverse.</p>
+<h2>2026 week 10</h2>
+<div class="wrap"><table>
+<tr><th>Game (away @ home)</th><th>Kickoff (ET)</th><th>Home win</th><th>Elo margin</th><th>Line (home)</th></tr>
+<tr><td class="p">NE @ DET</td><td class="p">2026-11-15 09:30</td><td class="p">54%</td><td class="p">+1.2</td><td class="p">+2.5</td></tr><tr><td class="p">BUF @ NYJ</td><td class="p">2026-11-15 13:00</td><td class="p">15%</td><td class="p">-12.3</td><td class="p">-7.5</td></tr><tr><td class="p">CAR @ NO</td><td class="p">2026-11-15 13:00</td><td class="p">57%</td><td class="p">+1.9</td><td class="p">+2.5</td></tr><tr><td class="p">HOU @ CLE</td><td class="p">2026-11-15 13:00</td><td class="p">44%</td><td class="p">-1.7</td><td class="p">-4.5</td></tr><tr><td class="p">JAX @ TEN</td><td class="p">2026-11-15 13:00</td><td class="p">16%</td><td class="p">-11.3</td><td class="p">-10.5</td></tr><tr><td class="p">KC @ ATL</td><td class="p">2026-11-15 13:00</td><td class="p">41%</td><td class="p">-2.6</td><td class="p">-3.0</td></tr><tr><td class="p">MIA @ IND</td><td class="p">2026-11-15 13:00</td><td class="p">61%</td><td class="p">+3.1</td><td class="p">+4.5</td></tr><tr><td class="p">MIN @ GB</td><td class="p">2026-11-15 13:00</td><td class="p">57%</td><td class="p">+1.8</td><td class="p">+2.5</td></tr><tr><td class="p">LA @ ARI</td><td class="p">2026-11-15 16:05</td><td class="p">29%</td><td class="p">-6.3</td><td class="p">-9.5</td></tr><tr><td class="p">SEA @ LV</td><td class="p">2026-11-15 16:05</td><td class="p">27%</td><td class="p">-6.8</td><td class="p">-6.5</td></tr><tr><td class="p">SF @ DAL</td><td class="p">2026-11-15 16:25</td><td class="p">34%</td><td class="p">-4.5</td><td class="p">-3.5</td></tr><tr><td class="p">PIT @ CIN</td><td class="p">2026-11-15 20:20</td><td class="p">60%</td><td class="p">+2.9</td><td class="p">+3.5</td></tr><tr><td class="p">LAC @ BAL</td><td class="p">2026-11-16 20:15</td><td class="p">71%</td><td class="p">+6.3</td><td class="p">+4.5</td></tr>
+</table></div>
+<h2>Track record</h2>
+<p class="muted">Every played game 2015-2026, playoffs included. Lower is better.</p>
+<div class="wrap"><table>
+<tr><th>Model</th><th>Games</th><th>Log-loss</th><th>Brier</th><th>Margin MAE</th></tr>
+<tr><td>Elo</td><td>3164</td><td>0.636</td><td>0.222</td><td>10.17</td></tr><tr><td>Closing line</td><td>3164</td><td>0.613</td><td>0.212</td><td>9.79</td></tr>
+</table></div>
+<p class="muted">Data: <a href="https://github.com/nflverse">nflverse</a>.</p>
+</main></body></html>
