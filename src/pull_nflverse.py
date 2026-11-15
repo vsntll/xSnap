@@ -21,7 +21,8 @@ PLAYER_COLS = ["player_id", "player_display_name", "position", "position_group",
                "receptions", "passing_yards", "rushing_yards", "receiving_yards", "passing_epa", "rushing_epa",
                "receiving_epa", "passing_cpoe"]
 BIO_COLS = ["gsis_id", "display_name", "birth_date", "position", "position_group", "rookie_season",
-            "draft_year", "draft_round", "draft_pick", "height", "weight"]
+            "draft_year", "draft_round", "draft_pick", "height", "weight", "headshot"]
+TEAM_COLS = ["team_abbr", "team_name", "team_logo_espn", "team_color"]
 
 
 def reduce_pbp(pbp: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -40,6 +41,20 @@ def reduce_pbp(pbp: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
     return team, qb
 
 
+def reduce_special_teams(pbp: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Kicker-game EPA on field goals + extra points, and team-game EPA on punts and
+    kickoffs from both sides (posteam = kicking team on punts, receiving team on kickoffs)."""
+    st = pbp.filter(pl.col("epa").is_not_null() & pl.col("posteam").is_not_null())
+    kick = st.filter(pl.col("play_type").is_in(["field_goal", "extra_point"]) & pl.col("kicker_player_id").is_not_null())
+    k = kick.group_by("game_id", "posteam", pl.col("kicker_player_id").alias("kicker_id")).agg(
+        name=pl.col("kicker_player_name").last(), kicks=pl.len(),
+        fg_att=(pl.col("play_type") == "field_goal").sum(), k_epa=pl.col("epa").sum())
+    pk = st.filter(pl.col("play_type").is_in(["punt", "kickoff"]))
+    side = [pk.select("game_id", team=pl.col("posteam"), st_epa=pl.col("epa")),
+            pk.select("game_id", team=pl.col("defteam"), st_epa=-pl.col("epa"))]
+    return k, pl.concat(side).group_by("game_id", "team").agg(pl.col("st_epa").sum())
+
+
 def main() -> None:
     RAW.mkdir(parents=True, exist_ok=True)
     sched = nfl.load_schedules()
@@ -48,12 +63,14 @@ def main() -> None:
     print(f"schedules: {sched.height} games, seasons {sched['season'].min()}-{sched['season'].max()}")
 
     for season in range(FIRST_PBP, latest + 1):
-        team_path, qb_path = RAW / f"pbp_team_{season}.parquet", RAW / f"pbp_qb_{season}.parquet"
-        if season < latest and team_path.exists() and qb_path.exists():
+        paths = {kind: RAW / f"pbp_{kind}_{season}.parquet" for kind in ("team", "qb", "k", "st")}
+        if season < latest and all(p.exists() for p in paths.values()):
             continue
-        team, qb = reduce_pbp(nfl.load_pbp([season]))
-        team.write_parquet(team_path)
-        qb.write_parquet(qb_path)
+        pbp = nfl.load_pbp([season])
+        team, qb = reduce_pbp(pbp)
+        k, st = reduce_special_teams(pbp)
+        for kind, df in (("team", team), ("qb", qb), ("k", k), ("st", st)):
+            df.write_parquet(paths[kind])
         print(f"pbp {season}: {team.height} team-games, {qb.height} qb-games")
 
     for season in range(FIRST_PBP, latest + 1):
@@ -62,7 +79,8 @@ def main() -> None:
             continue
         nfl.load_player_stats([season], summary_level="week").select(PLAYER_COLS).write_parquet(path)
     nfl.load_players().select(BIO_COLS).write_parquet(RAW / "players.parquet")
-    print(f"player stats {FIRST_PBP}-{latest} + players bio cached")
+    nfl.load_teams().select(TEAM_COLS).write_parquet(RAW / "teams.parquet")
+    print(f"player stats {FIRST_PBP}-{latest} + players bio + teams cached")
 
 
 if __name__ == "__main__":
