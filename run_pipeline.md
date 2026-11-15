@@ -1,4 +1,4 @@
-﻿# Running the pipeline
+# Running the pipeline
 
 Python 3.11, in a venv:
 
