@@ -53,10 +53,15 @@ def build(weeks: pd.DataFrame, bio: pd.DataFrame) -> tuple[pd.DataFrame, pd.Data
     # sorted so "last" team / name is the player's most recent
     w = opportunities(w[w["pos"].isin(STARTERS)]).sort_values(["season", "week"])
     keys = ["season", "player_id", "pos"]
-    ps = w.groupby(keys).agg(name=("player_display_name", "last"), team=("team", "last"), games=("game_id", "nunique"),
+    # a traded player keeps one season row summed over all his teams; `teams` is the path in order
+    ps = w.groupby(keys).agg(name=("player_display_name", "last"), team=("team", "last"),
+                             teams=("team", lambda s: "/".join(dict.fromkeys(s))), games=("game_id", "nunique"),
                              opp=("opp", "sum"), epa=("epa", "sum")).reset_index()
     rates = replacement_rates(ps)
-    pts = w.groupby([*keys, "team"])[["opp", "epa"]].sum().reset_index()
+    # one row per stint (player x team x season), with the weeks it covers
+    pts = w.groupby([*keys, "team"]).agg(name=("player_display_name", "last"), first_week=("week", "min"),
+                                         last_week=("week", "max"), games=("game_id", "nunique"),
+                                         opp=("opp", "sum"), epa=("epa", "sum")).reset_index()
     out = []
     for df in (ps, pts):
         df = df.join(rates, on=["season", "pos"])
@@ -96,6 +101,10 @@ def main() -> None:
     ps, pts = build(load_weeks(), pd.read_parquet(RAW / "players.parquet"))
     ps.to_csv(PROC / "player_season_value.csv", index=False)
     print(f"player_season_value: {len(ps)} player-seasons -> {PROC / 'player_season_value.csv'}")
+    stints = pts.sort_values(["season", "player_id", "first_week"])
+    stints.round(3).to_csv(PROC / "player_team_stints.csv", index=False)
+    moved = stints.duplicated(["season", "player_id"], keep=False)
+    print(f"player_team_stints: {len(stints)} stints, {moved.sum()} on players with 2+ teams in a season")
     games = pd.read_csv(PROC / "games_all.csv", low_memory=False)
     done = ps["season"] < games.loc[~games["completed"], "season"].min()  # finished seasons only
     check = validate(ps[done], pts[pts["season"].isin(ps.loc[done, "season"])], games)
