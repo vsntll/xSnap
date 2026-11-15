@@ -68,3 +68,18 @@ def test_american_odds_and_spread_text():
     assert spread_text(v) == "DET -2.5"
     assert spread_text(game_view(_g(close_spread_home=-7.0))) == "NE -7.0"
     assert spread_text(game_view(_g(close_spread_home=0.0))) == "PK"
+
+
+def test_team_seasons_and_season_record():
+    import pandas as pd
+    from elo import run_elo
+    from export_site import season_record, team_seasons
+    games = pd.DataFrame({"game_id": ["a", "b", "c"], "season": [2025, 2025, 2025], "game_type": ["REG", "REG", "WC"],
+                          "date": ["2025-09-07", "2025-09-14", "2026-01-10"], "gametime": "13:00",
+                          "home_team": ["NE", "DET", "NE"], "away_team": ["DET", "NE", "DET"], "location": "Home",
+                          "home_margin": [7.0, 3.0, 10.0], "completed": True, "close_spread_home": [-3.0, 0.0, 2.0]})
+    ts = team_seasons(games, run_elo(games)).set_index("team")
+    assert (ts.loc["NE", ["w", "l", "t", "diff"]] == [1, 1, 0, 4]).all()  # the playoff win isn't in the record
+    assert ts.loc["NE", "rank"] == 1 and ts.loc["NE", "elo"] > 1500  # but it is in the rating
+    rec = season_record(games, run_elo(games)).loc[2025]
+    assert rec["games"] == 3 and rec["line"] == 0.5  # pick'em game b left out of the line share

@@ -12,6 +12,7 @@ from string import Template
 
 import pandas as pd
 
+from elo import run_elo
 from prediction_ledger import week_predictions
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +62,33 @@ def load_grades() -> pd.DataFrame:
         return pd.DataFrame()
     g = pd.read_csv(path)
     return g[g["season"] == g["season"].max()]
+
+
+def team_seasons(games: pd.DataFrame, elo: pd.DataFrame) -> pd.DataFrame:
+    """One row per team-season: regular-season W-L-T and point diff, Elo after its last game
+    (playoffs included) and its Elo rank that season."""
+    g = games[games["completed"]].merge(elo[["game_id", "elo_home_post", "elo_away_post"]], on="game_id")
+    cols = ["season", "game_type", "date", "team", "m", "elo"]
+    long = pd.concat([g[["season", "game_type", "date", "home_team", "home_margin", "elo_home_post"]].set_axis(cols, axis=1),
+                      g[["season", "game_type", "date", "away_team", "home_margin", "elo_away_post"]].set_axis(cols, axis=1)
+                      .assign(m=lambda d: -d["m"])]).sort_values("date", kind="stable")
+    reg = long[long["game_type"] == "REG"].groupby(["season", "team"])["m"]
+    out = pd.DataFrame({"w": reg.agg(lambda m: (m > 0).sum()), "l": reg.agg(lambda m: (m < 0).sum()),
+                        "t": reg.agg(lambda m: (m == 0).sum()), "diff": reg.sum(),
+                        "elo": long.groupby(["season", "team"])["elo"].last()}).reset_index()
+    out["rank"] = out.groupby("season")["elo"].rank(ascending=False, method="first").astype(int)
+    return out.sort_values(["season", "rank"])
+
+
+def season_record(games: pd.DataFrame, elo: pd.DataFrame) -> pd.DataFrame:
+    """Per season: decided games, share Elo picked right (ratings use only earlier games) and share
+    the betting-line favourite won (pick'em lines left out)."""
+    g = games[games["completed"] & (games["home_margin"] != 0)].merge(elo[["game_id", "p_home"]], on="game_id")
+    won = g["home_margin"] > 0
+    line = g["close_spread_home"].notna() & (g["close_spread_home"] != 0)
+    return pd.DataFrame({"games": g.groupby("season").size(),
+                         "elo": ((g["p_home"] > 0.5) == won).groupby(g["season"]).mean(),
+                         "line": ((g["close_spread_home"] > 0) == won)[line].groupby(g["season"][line]).mean()})
 
 
 def game_view(g, logos: dict | None = None, qbs: dict | None = None, qb_grades: dict | None = None) -> dict:
