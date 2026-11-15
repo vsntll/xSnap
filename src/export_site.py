@@ -123,6 +123,24 @@ def game_view(g, logos: dict | None = None, qbs: dict | None = None, qb_grades: 
     return v
 
 
+def _logo(v, team, cls="logo") -> str:
+    url = v["logo"].get(team)
+    return f'<img class="{cls}" src="{escape(url)}" alt="" width="40" height="40" loading="lazy">' if url else ""
+
+
+def _qb(v, team) -> str:
+    if not v["qb"].get(team):
+        return ""
+    name, shot, _ = v["qb"][team]
+    img = (f'<img src="{escape(shot)}" alt="{escape(name)}" width="72" height="72" loading="lazy">' if shot
+           else f'<span class="noshot" aria-hidden="true">{escape(team)}</span>')
+    gr = v["qb_grade"].get(team)
+    badge = f'<span class="grade g-{gr[1]}" title="Season grade">{gr[1]}</span>' if gr else ""
+    rank = f", #{gr[0]} QB this season" if gr else ""
+    return (f'<figure class="qb">{img}<figcaption>{escape(name)}<small>{escape(team)} starting QB{rank}</small>'
+            f'</figcaption>{badge}</figure>')
+
+
 VOLUME = {"QB": "dropbacks + carries", "RB": "carries + targets", "WR": "carries + targets",
           "TE": "carries + targets", "K": "field goal tries", "D/ST": "games"}
 
@@ -175,6 +193,48 @@ def spread_text(v) -> str:
     if abs(v["line"]) < 0.25:
         return "PK"
     return f"{v['home']} -{v['line']:.1f}" if v["line"] > 0 else f"{v['away']} -{-v['line']:.1f}"
+
+
+def _ml(v, team, p) -> str:
+    side = "fav" if team == v["fav"] else "dog"
+    return f'<span class="ml {side}" title="Model fair moneyline">{american(p)}</span>'
+
+
+def _split_text(v) -> str:
+    if v["edge"] is None:
+        return "No line or model margin yet."
+    if abs(v["edge"]) < 0.5:
+        return "Model and line agree."
+    side = v["home"] if v["edge"] > 0 else v["away"]
+    return f"Model rates {side} {abs(v['edge']):.1f} pts better than the line does."
+
+
+def _game(v) -> str:
+    pct = lambda x: "–" if x is None else f"{x:.0%}"
+    pts = lambda x: "–" if x is None else f"{x:+.1f}"
+    style = f"--p:{v['p']:.3f}" + "".join(f";--{k}:{v[k]:.3f}" for k in ("elo", "mkt") if v[k] is not None)
+    marks = "".join(f'<i class="mk {k}"></i>' for k in ("elo", "mkt") if v[k] is not None)
+    label = f"{v['home']} {v['p']:.0%} to win at home; Elo {pct(v['elo'])}; line implies {pct(v['mkt'])}"
+    kick = v["kick"]
+    when = f"{kick:%a %b} {kick.day}, {kick:%I:%M %p}".replace(" 0", " ")
+    facts = [("Model margin (home)", pts(v["margin"])), (f"Model moneyline ({v['home']})", american(v["p"])),
+             ("Elo home win", pct(v["elo"])), ("Spread", spread_text(v)),
+             (f"Line moneyline ({v['home']})", american(v["mkt"]))]
+    dl = "".join(f"<div><dt>{escape(t)}</dt><dd>{escape(d)}</dd></div>" for t, d in facts)
+    src = "" if v["v1"] else "<small>Elo only</small>"
+    return (f'<li class="game" data-kick="{kick:%Y-%m-%dT%H:%M}" data-conf="{v["fav_p"]:.3f}" '
+            f'data-edge="{abs(v["edge"] or 0):.2f}" data-day="{kick:%a}" data-teams="{escape(v["away"])} {escape(v["home"])}">'
+            f'<details><summary><span class="kick">{when} ET</span>'
+            f'<span class="team away">{_logo(v, v["away"])}{escape(v["away"])}{_ml(v, v["away"], 1 - v["p"])}</span>'
+            f'<span class="field" style="{style}" role="img" aria-label="{escape(label)}">'
+            f'<span class="fill"></span><span class="mid"></span>{marks}</span>'
+            f'<span class="team home">{_logo(v, v["home"])}<span class="ab">{escape(v["home"])}</span>'
+            f'{_ml(v, v["home"], v["p"])}</span>'
+            f'<span class="pct"><span class="num cnt" data-from="50">{v["fav_p"]:.0%}</span>'
+            f'<small>{escape(v["fav"])}</small>{src}</span></summary>'
+            f'<div class="qbs">{_qb(v, v["away"])}{_qb(v, v["home"])}</div>'
+            f'<dl>{dl}<div class="split"><dt>Model vs line</dt><dd>{escape(_split_text(v))}</dd></div></dl>'
+            f'</details></li>')
 
 
 def main() -> None:
