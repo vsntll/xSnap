@@ -27,5 +27,35 @@
       "v1_log_loss": 0.6370214300554142,
       "elo_log_loss": 0.6565371902084183
     }
+  },
+  "value_definition": {
+    "seasons": "2009-2025",
+    "yoy": {
+      "QB": {
+        "pairs": 434,
+        "rate_r": 0.436,
+        "value_r": 0.463
+      },
+      "RB": {
+        "pairs": 581,
+        "rate_r": 0.208,
+        "value_r": 0.177
+      },
+      "TE": {
+        "pairs": 374,
+        "rate_r": 0.273,
+        "value_r": 0.413
+      },
+      "WR": {
+        "pairs": 966,
+        "rate_r": 0.224,
+        "value_r": 0.283
+      }
+    },
+    "team_point_diff_r": {
+      "all": 0.777,
+      "qb": 0.747,
+      "team_seasons": 544
+    }
   }
 }
