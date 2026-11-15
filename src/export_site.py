@@ -200,6 +200,9 @@ def _ml(v, team, p) -> str:
     return f'<span class="ml {side}" title="Model fair moneyline">{american(p)}</span>'
 
 
+EDGE_PTS = 3.0  # model vs line gap (points) that earns an edge tag on the odds board
+
+
 def _split_text(v) -> str:
     if v["edge"] is None:
         return "No line or model margin yet."
@@ -235,6 +238,59 @@ def _game(v) -> str:
             f'<div class="qbs">{_qb(v, v["away"])}{_qb(v, v["home"])}</div>'
             f'<dl>{dl}<div class="split"><dt>Model vs line</dt><dd>{escape(_split_text(v))}</dd></div></dl>'
             f'</details></li>')
+
+
+def _hero(views) -> str:
+    if not views:
+        return "No games scheduled yet. Predictions appear once next week's schedule is set."
+    top = max(views, key=lambda v: v["fav_p"])
+    under = top["away"] if top["fav"] == top["home"] else top["home"]
+    text = (f"{len(views)} games. Strongest pick: <b>{escape(top['fav'])}</b> over {escape(under)}, "
+            f"{top['fav_p']:.0%} to win.")
+    split = max((v for v in views if v["edge"] is not None), key=lambda v: abs(v["edge"]), default=None)
+    if split and abs(split["edge"]) >= 0.5:
+        text += f" Biggest split from the line: <b>{escape(split['away'])} @ {escape(split['home'])}</b>."
+    return text
+
+
+SUITS = [("&hearts;", "red"), ("&spades;", "black"), ("&diams;", "red"), ("&clubs;", "black")]
+
+
+def _floats(views) -> str:
+    """Hero playing cards: the six most confident picks, win % as the card index."""
+    def card(i, v):
+        suit, ink = SUITS[i % 4]
+        qb = v["qb"].get(v["fav"])
+        shot = f'<img class="shot" src="{escape(qb[1])}" alt="">' if qb and qb[1] else ""
+        idx = f'{v["fav_p"] * 100:.0f}<i>{suit}</i>'
+        return (f'<div class="card {ink}"><span class="idx">{idx}</span>{shot}{_logo(v, v["fav"], "badge")}'
+                f'<b>{escape(v["fav"])}</b><span class="ml">{american(v["fav_p"])} vs {escape(v["dog"])}</span>'
+                f'<span class="idx r">{idx}</span><span class="back"></span></div>')
+    return "".join(card(i, v) for i, v in enumerate(sorted(views, key=lambda v: -v["fav_p"])[:6]))
+
+
+def _ticker(views) -> str:
+    """One pass of the odds board; the template repeats it so the loop is seamless."""
+    def tick(v):
+        side = lambda t, p: (f'{_logo(v, t, "tlogo")}<span class="tm">{escape(t)}</span>'
+                             f'<b class="{"fav" if t == v["fav"] else "dog"}">{american(p)}</b>')
+        edge = ""
+        if v["edge"] is not None and abs(v["edge"]) >= EDGE_PTS:
+            edge = f'<em>&#9733; Edge {escape(v["home"] if v["edge"] > 0 else v["away"])}</em>'
+        return (f'<span class="tick">{side(v["away"], 1 - v["p"])}<i>@</i>{side(v["home"], v["p"])}'
+                f'<span class="sp">{escape(spread_text(v))}</span>{edge}</span>')
+    return "".join(tick(v) for v in sorted(views, key=lambda v: v["kick"]))
+
+
+def _metrics(m) -> str:
+    models = [(n, s) for n, s in [("Outcome v1", m.get("outcome_v1")), ("Elo", m["elo"]),
+                                  ("Closing line", m["market_close"])] if s]
+    keys = [("log_loss", ".3f"), ("brier", ".3f"), ("margin_mae", ".2f")]
+    best = {k: min(s[k] for _, s in models) for k, _ in keys}
+    return "".join(
+        f"<tr class=\"rrow\"><td>{n}</td><td class=\"cnt\">{s['games']:,}</td>"
+        + "".join(f'<td class="cnt{" best" if s[k] == best[k] else ""}">{s[k]:{f}}</td>' for k, f in keys) + "</tr>"
+        for n, s in models)
 
 
 def main() -> None:
