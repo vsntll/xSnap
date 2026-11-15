@@ -1,0 +1,8 @@
+# Python 3.11 (`py -3.11 -m venv .venv`), same as xValue.
+nflreadpy>=0.1.5     # nflverse loader (returns Polars; converted to pandas at the loader boundary)
+pandas>=2.0
+pyarrow>=15          # parquet cache in data/raw/
+
+# tests + lint (ci.yml)
+pytest>=8
+ruff>=0.6
