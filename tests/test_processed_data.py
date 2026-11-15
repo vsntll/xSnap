@@ -4,10 +4,13 @@ Skips when the table hasn't been built (CI without data)."""
 
 from __future__ import annotations
 
+import io
+import subprocess
+
 import pandas as pd
 import pytest
 
-from conftest import PROC
+from conftest import PROC, ROOT
 
 
 @pytest.fixture(scope="module")
@@ -39,3 +42,16 @@ def test_season_game_counts_plausible(games):
 def test_closing_spread_is_home_margin_sign(games):
     done = games[games["completed"] & games["close_spread_home"].notna()]
     assert done["close_spread_home"].corr(done["home_margin"]) > 0.3
+
+
+def test_prediction_ledger_is_append_only():
+    """Every ledger row committed at HEAD is still there, unchanged and in order."""
+    path = PROC / "predictions_ledger.csv"
+    try:
+        head = subprocess.run(["git", "show", "HEAD:data/processed/predictions_ledger.csv"], cwd=ROOT,
+                              capture_output=True, check=True).stdout.decode()
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("no committed ledger")
+    old, new = pd.read_csv(io.StringIO(head)), pd.read_csv(path)
+    old = old.rename(columns={"elo_margin": "pred_margin"})  # one-time header rename
+    pd.testing.assert_frame_equal(new.iloc[: len(old)], old, check_dtype=False)
