@@ -10,7 +10,7 @@ three seasons of value / rate / volume / games, age, draft pick, team change.
 Blend weight picked on targets 2021-23 (fit on earlier); scored once on targets
 2024-25, fit on everything before. Live: fit on all, project the current season
 from the last finished one -> value_projections.csv, aging_curves.csv.
-Rookies (no prior season) get no projection.
+Rookies (no prior season) come from rookie_value.py, flagged rookie=1.
 """
 
 from __future__ import annotations
@@ -21,6 +21,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
+
+import rookie_value
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
@@ -92,7 +94,8 @@ def main() -> None:
     ps = pd.read_csv(PROC / "player_season_value.csv")
     games = pd.read_csv(PROC / "games_all.csv", low_memory=False)
     last_finished = int(games.loc[~games["completed"], "season"].min()) - 1
-    df = panel(ps, pd.read_parquet(RAW / "players.parquet"), last_finished)
+    bio = pd.read_parquet(RAW / "players.parquet")
+    df = panel(ps, bio, last_finished)
     labeled = df.dropna(subset=["target"])
     tgt = labeled["season"] + 1
 
@@ -121,11 +124,19 @@ def main() -> None:
     full_curve.rename("delta_value").reset_index().to_csv(PROC / "aging_curves.csv", index=False)
     live = df[df["season"] == last_finished]
     live = live.assign(proj_season=last_finished + 1, proj_value=scaled_baseline(labeled, live, full_curve),
-                       gbm_value=fit_predict(labeled, live, blend))
-    live.sort_values("proj_value", ascending=False)[
-        ["proj_season", "player_id", "name", "pos", "team", "age", "value_0", "proj_value", "gbm_value"]
-    ].round(2).to_csv(PROC / "value_projections.csv", index=False)
-    print(f"value_projections: {len(live)} players for {last_finished + 1}")
+                       gbm_value=fit_predict(labeled, live, blend), rookie=0)
+
+    rookies = rookie_value.rookie_frame(ps, bio, last_finished)
+    metrics["value_rookies"] = rookie_value.evaluate(rookies, score)
+    METRICS.write_text(json.dumps(metrics, indent=2) + "\n")
+    print("rookies:", json.dumps(metrics["value_rookies"]))
+    new = rookies[(rookies["season"] == last_finished + 1) & ~rookies["player_id"].isin(live["player_id"])]
+    new = new.assign(proj_season=last_finished + 1, team=None, value_0=np.nan, gbm_value=np.nan, rookie=1,
+                     proj_value=rookie_value.predict(rookie_value.fit(rookies.dropna(subset=["target"])), new))
+    cols = ["proj_season", "player_id", "name", "pos", "team", "age", "rookie", "value_0", "proj_value", "gbm_value"]
+    out = pd.concat([live[cols], new[cols]]).sort_values("proj_value", ascending=False)
+    out.round(2).to_csv(PROC / "value_projections.csv", index=False)
+    print(f"value_projections: {len(live)} veterans + {len(new)} rookies for {last_finished + 1}")
 
 
 if __name__ == "__main__":
