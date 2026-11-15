@@ -1,12 +1,9 @@
 name: CI
 
-# Lint + tests on pushes / pull requests that touch code (ported from xValue).
-# Data-invariant tests skip without the rebuilt tables; unit tests always run.
+# Lint + tests (ported from xValue). Manual-only for now to save Actions minutes:
+# src/update.py runs the same tests locally before every publish. To re-enable on
+# push, add back push/pull_request triggers with paths src/**, tests/**, requirements.txt.
 on:
-  push:
-    paths: ["src/**", "tests/**", "requirements.txt", ".github/workflows/ci.yml"]
-  pull_request:
-    paths: ["src/**", "tests/**", "requirements.txt", ".github/workflows/ci.yml"]
   workflow_dispatch: {}
 
 permissions:
