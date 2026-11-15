@@ -5,6 +5,8 @@ Rows: a player's season t (QB/RB/WR/TE with any volume) -> target value in t+1
 three seasons of value / rate / volume / games, age, draft pick, team change.
   baseline: 3-2-1 weighted value + the position aging delta for his age
   model:    gradient boosting, a direct predictor blended with a change-from-last one
+  published: the baseline shrunk per position by a fitted line - on the 2024-25
+             holdout it matched or beat the boosted stack, so the stack is report-only
 Blend weight picked on targets 2021-23 (fit on earlier); scored once on targets
 2024-25, fit on everything before. Live: fit on all, project the current season
 from the last finished one -> value_projections.csv, aging_curves.csv.
@@ -39,7 +41,9 @@ def panel(ps: pd.DataFrame, bio: pd.DataFrame, last_finished: int) -> pd.DataFra
                       how="left")
     nxt = base.assign(season=base["season"] - 1)[["season", "player_id", "value"]].rename(columns={"value": "target"})
     df = df.merge(nxt, on=["season", "player_id"], how="left")
+    df["present_next"] = df["target"].notna()
     df.loc[df["season"] < last_finished, "target"] = df["target"].fillna(0.0)  # absent next year = 0
+    df.loc[df["season"] >= last_finished, "target"] = np.nan  # next season unfinished: a partial value isn't a label
     b = bio.drop_duplicates("gsis_id").set_index("gsis_id")
     birth = pd.to_datetime(df["player_id"].map(b["birth_date"]), errors="coerce")
     df["age"] = (pd.to_datetime(df["season"].astype(str) + "-09-01") - birth).dt.days / 365.25
@@ -50,8 +54,9 @@ def panel(ps: pd.DataFrame, bio: pd.DataFrame, last_finished: int) -> pd.DataFra
 
 
 def aging_curves(df: pd.DataFrame) -> pd.Series:
-    """Delta method: mean change in value from age a to a+1, per position, smoothed."""
-    pairs = df.dropna(subset=["target", "age"]).query("opp_0 > 0")
+    """Delta method: mean change in value from age a to a+1, per position, smoothed.
+    Only players who played both seasons, so it measures aging, not leaving the league."""
+    pairs = df[df["present_next"]].dropna(subset=["target", "age"]).query("opp_0 > 0")
     d = pairs.assign(age=pairs["age"].round().astype(int), delta=pairs["target"] - pairs["value_0"])
     curve = d[d["age"].between(21, 40)].groupby(["pos", "age"])["delta"].mean()
     return curve.groupby("pos").transform(lambda s: s.rolling(3, center=True, min_periods=1).mean())
@@ -63,6 +68,13 @@ def baseline(df: pd.DataFrame, curve: pd.Series) -> pd.Series:
     age = df["age"].round().clip(21, 40).fillna(27).astype(int)
     delta = pd.Series(list(zip(df["pos"], age)), index=df.index).map(curve).fillna(0.0)
     return wavg + delta
+
+
+def scaled_baseline(train: pd.DataFrame, rows: pd.DataFrame, curve: pd.Series) -> list[float]:
+    """The baseline shrunk per position by a line fit on the training rows (published projection)."""
+    tb = baseline(train, curve)
+    fits = {p: np.polyfit(tb[g.index], g["target"], 1) for p, g in train.groupby("pos")}
+    return [np.polyval(fits[p], b) for p, b in zip(rows["pos"], baseline(rows, curve))]
 
 
 def fit_predict(train: pd.DataFrame, rows: pd.DataFrame, blend: float) -> np.ndarray:
@@ -91,24 +103,28 @@ def main() -> None:
                 key=lambda b: score(vt["target"], pd.Series(fit_predict(vtr, vt, b), index=vt.index))["r2"])
     test, train = labeled[tgt.between(*HOLDOUT)], labeled[tgt < HOLDOUT[0]]
     test = test.assign(pred=fit_predict(train, test, blend), base=baseline(test, curve))
-    by_pos = {p: {"model": score(g["target"], g["pred"]), "baseline": score(g["target"], g["base"])}
-              for p, g in test.groupby("pos")}
-    bins = test.groupby(pd.qcut(test["pred"], 5, labels=False))[["pred", "target"]].mean().round(1)
+    # the baseline shrunk per position by a line fit on the training years: does the model beat simple shrinkage?
+    test["base_scaled"] = scaled_baseline(train, test, curve)
+    by_pos = {p: {"model": score(g["target"], g["base_scaled"]), "baseline": score(g["target"], g["base"]),
+                  "gbm": score(g["target"], g["pred"])} for p, g in test.groupby("pos")}
+    bins = test.groupby(pd.qcut(test["base_scaled"], 5, labels=False))[["base_scaled", "target"]].mean().round(1)
     metrics = json.loads(METRICS.read_text())
     metrics["value"] = {"blend_direct": blend, "holdout_targets": f"{HOLDOUT[0]}-{HOLDOUT[1]}",
-                        "model": score(test["target"], test["pred"]),
+                        # published projection; the boosted stack didn't beat it, so it is reported only
+                        "headline": "baseline_scaled", "model": score(test["target"], test["base_scaled"]),
+                        "gbm": score(test["target"], test["pred"]),
                         "baseline": score(test["target"], test["base"]), "by_pos": by_pos,
                         "calibration_by_pred_quintile": bins.to_dict("list")}
     METRICS.write_text(json.dumps(metrics, indent=2) + "\n")
-    print(json.dumps({k: metrics["value"][k] for k in ("blend_direct", "model", "baseline")}, indent=2))
+    print(json.dumps({k: metrics["value"][k] for k in ("model", "gbm", "baseline")}, indent=2))
 
     full_curve = aging_curves(labeled)
     full_curve.rename("delta_value").reset_index().to_csv(PROC / "aging_curves.csv", index=False)
     live = df[df["season"] == last_finished]
-    live = live.assign(proj_season=last_finished + 1, proj_value=fit_predict(labeled, live, blend),
-                       baseline=baseline(live, full_curve))
+    live = live.assign(proj_season=last_finished + 1, proj_value=scaled_baseline(labeled, live, full_curve),
+                       gbm_value=fit_predict(labeled, live, blend))
     live.sort_values("proj_value", ascending=False)[
-        ["proj_season", "player_id", "name", "pos", "team", "age", "value_0", "proj_value", "baseline"]
+        ["proj_season", "player_id", "name", "pos", "team", "age", "value_0", "proj_value", "gbm_value"]
     ].round(2).to_csv(PROC / "value_projections.csv", index=False)
     print(f"value_projections: {len(live)} players for {last_finished + 1}")
 
