@@ -17,5 +17,14 @@ def test_log_loss_rise_past_tolerance_fails():
     assert len(fails) == 1 and fails[0].startswith("outcome_v1 log_loss")
 
 
+def test_value_r2_drop_past_tolerance_fails():
+    old, new = _m(0.636), _m(0.636)
+    old["value"], new["value"] = {"model": {"r2": 0.446}}, {"model": {"r2": 0.42}}
+    fails = compare(old, new)
+    assert len(fails) == 1 and fails[0].startswith("value r2")
+    new["value"]["model"]["r2"] = 0.44
+    assert compare(old, new) == []
+
+
 def test_model_missing_in_baseline_is_skipped():
     assert compare(_m(0.636), _m(0.636, 0.9)) == []

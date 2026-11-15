@@ -20,19 +20,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 METRICS = ROOT / "data" / "processed" / "model_metrics.json"
 ACCEPTED = ROOT / "accepted_metrics.json"
-LOG_LOSS_RISE, MAE_RISE = 0.01, 0.10
+LOG_LOSS_RISE, MAE_RISE, R2_DROP = 0.01, 0.10, 0.02
+# (section, key, tolerance): positive = may rise at most this much, negative = may fall at most this much
 CHECKS = [(m, key, tol) for m in ("elo", "outcome_v1") for key, tol in (("log_loss", LOG_LOSS_RISE),
                                                                          ("margin_mae", MAE_RISE))]
+CHECKS.append(("value", "r2", -R2_DROP))
+
+
+def _get(d: dict, section: str, key: str):
+    s = d.get(section, {})
+    return s.get("model", {}).get(key) if section == "value" else s.get(key)
 
 
 def compare(old: dict, new: dict) -> list[str]:
     """Failures (empty = pass); a model missing on either side is skipped."""
     fails = []
     for model, key, tol in CHECKS:
-        a, b = old.get(model, {}).get(key), new.get(model, {}).get(key)
+        a, b = _get(old, model, key), _get(new, model, key)
         if a is None or b is None:
             continue
-        bad = b > a + tol
+        bad = b < a + tol if tol < 0 else b > a + tol
         print(f"  {model} {key}: {a:.4f} -> {b:.4f} ({b - a:+.4f}, limit +{tol})  {'FAIL' if bad else 'ok'}")
         if bad:
             fails.append(f"{model} {key} {a:.4f} -> {b:.4f}")
